@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Provay - Terminal de Mantenimiento</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    body { background-color: #f1f5f9; color: #1e293b; padding: 24px; min-height: 100vh; }
+
+    .header-terminal {
+      background-color: #0f172a;
+      color: #ffffff;
+      padding: 16px 24px;
+      border-radius: 8px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 24px;
+    }
+    .titulo-sistema { font-size: 1.1rem; font-weight: 700; }
+    .subtitulo { font-size: 0.75rem; color: #94a3b8; margin-top: 2px; }
+
+    .control-usuario { display: flex; align-items: center; gap: 10px; }
+    .control-usuario label { font-size: 0.85rem; color: #cbd5e1; font-weight: 500; }
+    .control-usuario select {
+      background-color: #1e293b;
+      color: #38bdf8;
+      border: 1px solid #0284c7;
+      padding: 8px 12px;
+      border-radius: 6px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .grid-tablero {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+
+    .columna-estado {
+      background-color: #ffffff;
+      border-radius: 8px;
+      border: 1px solid #e2e8f0;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .cabecera-columna {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-bottom: 12px;
+      border-bottom: 1px solid #f1f5f9;
+    }
+    .nombre-columna { font-size: 0.85rem; font-weight: 700; text-transform: uppercase; color: #475569; letter-spacing: 0.05em; }
+    .contador-tareas {
+      background-color: #f1f5f9;
+      color: #475569;
+      font-size: 0.75rem;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 12px;
+    }
+
+    .tarjeta-tarea {
+      background-color: #ffffff;
+      border: 1px solid #e2e8f0;
+      border-left: 4px solid #94a3b8;
+      border-radius: 6px;
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+    }
+    .prioridad-Alta { border-left-color: #dc2626; }
+    .prioridad-Media { border-left-color: #d97706; }
+    .prioridad-Baja { border-left-color: #16a34a; }
+
+    .fila-meta { display: flex; justify-content: space-between; align-items: center; }
+    .id-tag { font-size: 0.75rem; font-weight: 700; color: #64748b; }
+    .ubicacion-tag { font-size: 0.85rem; font-weight: 700; color: #0f172a; }
+
+    .texto-descripcion { font-size: 0.875rem; color: #334155; line-height: 1.4; }
+    .fechas-meta { font-size: 0.75rem; color: #64748b; display: flex; flex-direction: column; gap: 2px; }
+
+    .btn-accion {
+      width: 100%;
+      padding: 10px;
+      border: none;
+      border-radius: 6px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      margin-top: 6px;
+    }
+    .btn-iniciar { background-color: #2563eb; color: #ffffff; }
+    .btn-iniciar:hover { background-color: #1d4ed8; }
+    .btn-cerrar { background-color: #16a34a; color: #ffffff; }
+    .btn-cerrar:hover { background-color: #15803d; }
+  </style>
+</head>
+<body>
+
+  <header class="header-terminal">
+    <div>
+      <div class="titulo-sistema">Provay CMMS</div>
+      <div class="subtitulo">Terminal Operativa de Mantenimiento</div>
+    </div>
+    <div class="control-usuario">
+      <label for="selector-tecnico">Operador:</label>
+      <select id="selector-tecnico" onchange="cargarTareas()">
+        <option value="1">Carlos Ramírez</option>
+        <option value="2">María Torres</option>
+      </select>
+    </div>
+  </header>
+
+  <main class="grid-tablero">
+    <section class="columna-estado">
+      <div class="cabecera-columna">
+        <span class="nombre-columna">Tareas Asignadas</span>
+        <span id="badge-pendientes" class="contador-tareas">0</span>
+      </div>
+      <div id="contenedor-pendientes" style="display: flex; flex-direction: column; gap: 10px;"></div>
+    </section>
+
+    <section class="columna-estado">
+      <div class="cabecera-columna">
+        <span class="nombre-columna">En Ejecución</span>
+        <span id="badge-proceso" class="contador-tareas">0</span>
+      </div>
+      <div id="contenedor-proceso" style="display: flex; flex-direction: column; gap: 10px;"></div>
+    </section>
+  </main>
+
+  <script>
+    const API_URL = "http://localhost:5019";
+
+    async function cargarTareas() {
+      const selector = document.getElementById("selector-tecnico");
+      const idTecnico = parseInt(selector.value);
+
+      const listaPendientes = document.getElementById("contenedor-pendientes");
+      const listaProceso = document.getElementById("contenedor-proceso");
+      listaPendientes.innerHTML = "";
+      listaProceso.innerHTML = "";
+
+      try {
+        const res = await fetch(`${API_URL}/solicitudes/activas`);
+        if (!res.ok) throw new Error("Error al obtener solicitudes");
+        const solicitudes = await res.json();
+
+        // Filtro estricto por técnico asignado
+        const misTareas = solicitudes.filter(s => s.idTecnicoAsignado === idTecnico);
+
+        let contPendientes = 0;
+        let contProceso = 0;
+
+        misTareas.forEach(s => {
+          let fechasHTML = `<div>Asignado: <strong>${s.fechaSolicitud}</strong></div>`;
+          if (s.categoria === 'Preventivo' && s.fechaProgramada) {
+            fechasHTML += `<div style="color: #2563eb; font-weight: 600;">Programado: ${s.fechaProgramada} (${s.frecuencia || 'Única vez'})</div>`;
+          }
+
+          const tarjeta = `
+            <div class="tarjeta-tarea prioridad-${s.prioridad}">
+              <div class="fila-meta">
+                <span class="id-tag">#${s.id}</span>
+                <span class="ubicacion-tag">${s.areaEquipo}</span>
+              </div>
+              <p class="texto-descripcion">${s.descripcion}</p>
+              <div class="fechas-meta">${fechasHTML}</div>
+              ${s.estado === 'Pendiente'
+                ? `<button class="btn-accion btn-iniciar" onclick="actualizarEstado(${s.id}, 'En Proceso')">Iniciar Trabajo</button>`
+                : `<button class="btn-accion btn-cerrar" onclick="completarTarea(${s.id})">Completar Tarea</button>`
+              }
+            </div>
+          `;
+
+          if (s.estado === 'Pendiente') {
+            listaPendientes.innerHTML += tarjeta;
+            contPendientes++;
+          } else if (s.estado === 'En Proceso') {
+            listaProceso.innerHTML += tarjeta;
+            contProceso++;
+          }
+        });
+
+        document.getElementById("badge-pendientes").innerText = contPendientes;
+        document.getElementById("badge-proceso").innerText = contProceso;
+
+        if (contPendientes === 0) listaPendientes.innerHTML = `<div style="font-size: 0.85rem; color: #94a3b8; text-align: center; padding: 24px;">Sin tareas asignadas.</div>`;
+        if (contProceso === 0) listaProceso.innerHTML = `<div style="font-size: 0.85rem; color: #94a3b8; text-align: center; padding: 24px;">No hay trabajos en ejecución.</div>`;
+
+      } catch (error) {
+        console.error("Error al sincronizar:", error);
+      }
+    }
+
+    async function actualizarEstado(id, nuevoEstado, nota = null) {
+      try {
+        await fetch(`${API_URL}/solicitudes/${id}/estado`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ nuevoEstado: nuevoEstado, notaResolucion: nota })
+        });
+        cargarTareas();
+      } catch (error) {
+        console.error("Error al actualizar estado:", error);
+      }
+    }
+
+    function completarTarea(id) {
+      const nota = prompt("Ingrese nota de lo realizado (refacciones usadas, trabajo hecho):");
+      if (nota !== null) {
+        actualizarEstado(id, "Cerrado", nota.trim() === "" ? "Trabajo concluido" : nota.trim());
+      }
+    }
+
+    cargarTareas();
+  </script>
+</body>
+</html>
