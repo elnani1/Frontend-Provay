@@ -101,6 +101,37 @@
     .btn-iniciar:hover { background-color: #1d4ed8; }
     .btn-cerrar { background-color: #16a34a; color: #ffffff; }
     .btn-cerrar:hover { background-color: #15803d; }
+
+    .tag-categoria {
+      font-size: 0.68rem;
+      font-weight: 700;
+      padding: 2px 6px;
+      border-radius: 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+    .tag-correctivo { background-color: #fee2e2; color: #991b1b; }
+    .tag-preventivo { background-color: #ede9fe; color: #6d28d9; }
+
+    .subcabecera-bloque {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 6px 10px;
+      background-color: #f8fafc;
+      border-radius: 6px;
+      border-left: 3px solid #64748b;
+      margin-bottom: 8px;
+    }
+    .subcabecera-correctivo { border-left-color: #ef4444; }
+    .subcabecera-preventivo { border-left-color: #8b5cf6; }
+    .subtitulo-bloque {
+      font-size: 0.78rem;
+      font-weight: 700;
+      color: #334155;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
   </style>
 </head>
 <body>
@@ -110,12 +141,8 @@
       <div class="titulo-sistema">Provay CMMS</div>
       <div class="subtitulo">Terminal Operativa de Mantenimiento</div>
     </div>
-    <div class="control-usuario">
-      <label for="selector-tecnico">Operador:</label>
-      <select id="selector-tecnico" onchange="cargarTareas()">
-        <option value="1">Carlos Ramírez</option>
-        <option value="2">María Torres</option>
-      </select>
+    <div style="display: flex; align-items: center; gap: 8px; background: #1e293b; padding: 6px 14px; border-radius: 6px; border: 1px solid #334155;">
+      <span style="font-size: 0.85rem; font-weight: 600; color: #38bdf8;">Técnico General</span>
     </div>
   </header>
 
@@ -123,9 +150,26 @@
     <section class="columna-estado">
       <div class="cabecera-columna">
         <span class="nombre-columna">Tareas Asignadas</span>
-        <span id="badge-pendientes" class="contador-tareas">0</span>
+        <span id="badge-pendientes-total" class="contador-tareas">0</span>
       </div>
-      <div id="contenedor-pendientes" style="display: flex; flex-direction: column; gap: 10px;"></div>
+
+      <!-- Sección Superior: Correctivos -->
+      <div>
+        <div class="subcabecera-bloque subcabecera-correctivo">
+          <span class="subtitulo-bloque">Correctivo (Fallas)</span>
+          <span id="badge-pendientes-correctivo" class="contador-tareas">0</span>
+        </div>
+        <div id="contenedor-pendientes-correctivo" style="display: flex; flex-direction: column; gap: 10px;"></div>
+      </div>
+
+      <!-- Sección Inferior: Preventivos -->
+      <div style="margin-top: 14px; padding-top: 14px; border-top: 1px dashed #e2e8f0;">
+        <div class="subcabecera-bloque subcabecera-preventivo">
+          <span class="subtitulo-bloque">Preventivo (Programados)</span>
+          <span id="badge-pendientes-preventivo" class="contador-tareas">0</span>
+        </div>
+        <div id="contenedor-pendientes-preventivo" style="display: flex; flex-direction: column; gap: 10px;"></div>
+      </div>
     </section>
 
     <section class="columna-estado">
@@ -141,12 +185,11 @@
     const API_URL = "http://localhost:5019";
 
     async function cargarTareas() {
-      const selector = document.getElementById("selector-tecnico");
-      const idTecnico = parseInt(selector.value);
-
-      const listaPendientes = document.getElementById("contenedor-pendientes");
+      const listaCorrectivos = document.getElementById("contenedor-pendientes-correctivo");
+      const listaPreventivos = document.getElementById("contenedor-pendientes-preventivo");
       const listaProceso = document.getElementById("contenedor-proceso");
-      listaPendientes.innerHTML = "";
+      listaCorrectivos.innerHTML = "";
+      listaPreventivos.innerHTML = "";
       listaProceso.innerHTML = "";
 
       try {
@@ -154,22 +197,31 @@
         if (!res.ok) throw new Error("Error al obtener solicitudes");
         const solicitudes = await res.json();
 
-        // Filtro estricto por técnico asignado
-        const misTareas = solicitudes.filter(s => s.idTecnicoAsignado === idTecnico);
+        // En la empresa hay un único técnico, todas las solicitudes activas van a su terminal
+        const misTareas = solicitudes;
 
-        let contPendientes = 0;
+        let contCorrectivos = 0;
+        let contPreventivos = 0;
         let contProceso = 0;
 
         misTareas.forEach(s => {
-          let fechasHTML = `<div>Asignado: <strong>${s.fechaSolicitud}</strong></div>`;
+          let fechasHTML = `<div>Reportado: <strong>${s.fechaSolicitud}</strong></div>`;
+          if (s.fechaAsignacion) {
+            fechasHTML += `<div>Iniciado: <strong>${s.fechaAsignacion}</strong></div>`;
+          }
           if (s.categoria === 'Preventivo' && s.fechaProgramada) {
             fechasHTML += `<div style="color: #2563eb; font-weight: 600;">Programado: ${s.fechaProgramada} (${s.frecuencia || 'Única vez'})</div>`;
           }
 
+          const tagClase = s.categoria === 'Preventivo' ? 'tag-preventivo' : 'tag-correctivo';
+
           const tarjeta = `
             <div class="tarjeta-tarea prioridad-${s.prioridad}">
               <div class="fila-meta">
-                <span class="id-tag">#${s.id}</span>
+                <div style="display: flex; align-items: center; gap: 6px;">
+                  <span class="id-tag">#${s.id}</span>
+                  <span class="tag-categoria ${tagClase}">${s.categoria}</span>
+                </div>
                 <span class="ubicacion-tag">${s.areaEquipo}</span>
               </div>
               <p class="texto-descripcion">${s.descripcion}</p>
@@ -182,18 +234,26 @@
           `;
 
           if (s.estado === 'Pendiente') {
-            listaPendientes.innerHTML += tarjeta;
-            contPendientes++;
+            if (s.categoria === 'Preventivo') {
+              listaPreventivos.innerHTML += tarjeta;
+              contPreventivos++;
+            } else {
+              listaCorrectivos.innerHTML += tarjeta;
+              contCorrectivos++;
+            }
           } else if (s.estado === 'En Proceso') {
             listaProceso.innerHTML += tarjeta;
             contProceso++;
           }
         });
 
-        document.getElementById("badge-pendientes").innerText = contPendientes;
+        document.getElementById("badge-pendientes-total").innerText = contCorrectivos + contPreventivos;
+        document.getElementById("badge-pendientes-correctivo").innerText = contCorrectivos;
+        document.getElementById("badge-pendientes-preventivo").innerText = contPreventivos;
         document.getElementById("badge-proceso").innerText = contProceso;
 
-        if (contPendientes === 0) listaPendientes.innerHTML = `<div style="font-size: 0.85rem; color: #94a3b8; text-align: center; padding: 24px;">Sin tareas asignadas.</div>`;
+        if (contCorrectivos === 0) listaCorrectivos.innerHTML = `<div style="font-size: 0.8rem; color: #94a3b8; text-align: center; padding: 14px;">Sin fallas correctivas pendientes.</div>`;
+        if (contPreventivos === 0) listaPreventivos.innerHTML = `<div style="font-size: 0.8rem; color: #94a3b8; text-align: center; padding: 14px;">Sin mantenimientos preventivos pendientes.</div>`;
         if (contProceso === 0) listaProceso.innerHTML = `<div style="font-size: 0.85rem; color: #94a3b8; text-align: center; padding: 24px;">No hay trabajos en ejecución.</div>`;
 
       } catch (error) {
@@ -203,11 +263,17 @@
 
     async function actualizarEstado(id, nuevoEstado, nota = null) {
       try {
-        await fetch(`${API_URL}/solicitudes/${id}/estado`, {
+        const res = await fetch(`${API_URL}/solicitudes/${id}/estado`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ nuevoEstado: nuevoEstado, notaResolucion: nota })
         });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.Mensaje) {
+            alert(data.Mensaje);
+          }
+        }
         cargarTareas();
       } catch (error) {
         console.error("Error al actualizar estado:", error);

@@ -23,26 +23,61 @@
     </header>
 
     <section class="contenedor-tabla">
-      <div style="display: flex; gap: 8px; margin-bottom: 16px;">
-        <button id="btn-activas" class="boton-primario" onclick="cambiarVista('activas')">Solicitudes Activas</button>
-        <button id="btn-historial" class="boton-secundario" onclick="cambiarVista('historial')">Bitácora / Historial</button>
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 12px;">
+        <div style="display: flex; gap: 8px; align-items: center;">
+          <button id="btn-activas" class="boton-primario" onclick="cambiarVista('activas')">Solicitudes Activas</button>
+          <button id="btn-historial" class="boton-secundario" onclick="cambiarVista('historial')">Bitácora / Historial</button>
+          <button id="btn-calendario" class="boton-secundario" onclick="cambiarVista('calendario')">Calendario Preventivos</button>
+        </div>
+
+        <div id="contenedor-filtro-categoria" style="display: flex; align-items: center; gap: 8px;">
+          <label for="filtro-categoria" style="font-size: 0.85rem; font-weight: 600; color: #475569;">Categoría:</label>
+          <select id="filtro-categoria" onchange="aplicarFiltroCategoria()" style="padding: 6px 12px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 0.85rem; background: #fff; cursor: pointer; color: #1e293b; font-weight: 500;">
+            <option value="Todas">Todas las categorías</option>
+            <option value="Correctivo">Solo Correctivos</option>
+            <option value="Preventivo">Solo Preventivos</option>
+          </select>
+        </div>
       </div>
 
-      <table class="tabla-solicitudes">
-        <thead>
-          <tr>
-            <th>ID</th>
-            <th>Fechas</th>
-            <th>Ubicación</th>
-            <th>Técnico</th>
-            <th>Descripción / Trabajo</th>
-            <th>Prioridad</th>
-            <th>Estado</th>
-            <th class="texto-derecha">Acciones</th>
-          </tr>
-        </thead>
-        <tbody id="cuerpo-tabla"></tbody>
-      </table>
+      <div id="vista-tabla">
+        <table class="tabla-solicitudes">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Categoría</th>
+              <th>Trazabilidad / Fechas</th>
+              <th>Ubicación</th>
+              <th>Descripción / Trabajo</th>
+              <th>Prioridad</th>
+              <th>Estado</th>
+              <th class="texto-derecha">Acciones</th>
+            </tr>
+          </thead>
+          <tbody id="cuerpo-tabla"></tbody>
+        </table>
+      </div>
+
+      <div id="vista-calendario" class="oculto">
+        <div class="cabecera-calendario">
+          <div style="display: flex; align-items: center; gap: 12px;">
+            <button class="boton-secundario" onclick="navegarMes(-1)">&larr; Anterior</button>
+            <h3 id="titulo-mes" style="font-size: 1.1rem; color: #1e293b; min-width: 180px; text-align: center;"></h3>
+            <button class="boton-secundario" onclick="navegarMes(1)">Siguiente &rarr;</button>
+          </div>
+          <span style="font-size: 0.85rem; color: #64748b;">Muestra las fechas programadas de mantenimientos preventivos</span>
+        </div>
+        <div class="cuadricula-calendario">
+          <div class="dia-encabezado">Lun</div>
+          <div class="dia-encabezado">Mar</div>
+          <div class="dia-encabezado">Mié</div>
+          <div class="dia-encabezado">Jue</div>
+          <div class="dia-encabezado">Vie</div>
+          <div class="dia-encabezado">Sáb</div>
+          <div class="dia-encabezado">Dom</div>
+        </div>
+        <div id="dias-calendario" class="cuadricula-calendario"></div>
+      </div>
     </section>
   </main>
 
@@ -84,34 +119,28 @@
               <label>Frecuencia</label>
               <select id="frecuencia">
                 <option value="Única vez">Única vez</option>
-                <option value="Semanal">Semanal</option>
-                <option value="Mensual">Mensual</option>
-                <option value="Semestral">Semestral</option>
-                <option value="Anual">Anual</option>
+                <option value="Semanal">Semanal (cada semana)</option>
+                <option value="Quincenal">Quincenal (cada 15 días)</option>
+                <option value="Mensual" selected>Mensual (cada 1 mes)</option>
+                <option value="Bimestral (cada 2 meses)">Bimestral (cada 2 meses)</option>
+                <option value="Trimestral (cada 3 meses)">Trimestral (cada 3 meses)</option>
+                <option value="Cuatrimestral (cada 4 meses)">Cuatrimestral (cada 4 meses)</option>
+                <option value="Semestral (cada 6 meses)">Semestral (cada 6 meses)</option>
+                <option value="Anual (cada 1 año)">Anual (cada 1 año)</option>
               </select>
             </div>
           </div>
         </div>
 
-        <div class="fila-campos">
-          <div class="campo-formulario">
-            <label>Ubicación / Área</label>
-            <select id="idAreaEquipo" required>
-              <option value="1">Aula 3</option>
-              <option value="2">Laboratorio de Ciencias</option>
-              <option value="3">Bodega Central</option>
-              <option value="4">Edificio Administrativo</option>
-            </select>
-          </div>
-
-          <div class="campo-formulario">
-            <label>Técnico Responsable</label>
-            <select id="idTecnicoAsignado">
-              <option value="">Sin asignar</option>
-              <option value="1">Carlos Ramírez</option>
-              <option value="2">María Torres</option>
-            </select>
-          </div>
+        <div class="campo-formulario">
+          <label>Ubicación / Área</label>
+          <select id="idAreaEquipo" required>
+            <option value="1">Aula 3</option>
+            <option value="2">Laboratorio de Ciencias</option>
+            <option value="3">Bodega Central</option>
+            <option value="4">Edificio Administrativo</option>
+          </select>
+          <input type="hidden" id="idTecnicoAsignado" value="1">
         </div>
 
         <div class="campo-formulario">
